@@ -1,15 +1,15 @@
-import threading
 import gi
+gi.require_version('Gst', '1.0')
+gi.require_version('GstRtspServer', '1.0')
 from gi.repository import Gst, GstRtspServer, GLib
+
+import threading
 from socketserver import ThreadingMixIn, TCPServer
 from http.server import BaseHTTPRequestHandler
 from threading import Thread
 import base64
 import json
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-
-gi.require_version('Gst', '1.0')
-gi.require_version('GstRtspServer', '1.0')
 
 
 class RtspSystem(GstRtspServer.RTSPMediaFactory):
