@@ -54,7 +54,7 @@ class RTSPServer(GstRtspServer.RTSPServer):
         basic = GstRtspServer.RTSPAuth.make_basic(user, password)
         auth.add_basic(basic, token)
         self.set_auth(auth)
-        self.set_service(RTSP_PORT)
+        self.set_service(str(RTSP_PORT))
 
         permissions = GstRtspServer.RTSPPermissions()
         permissions.add_permission_for_role(user, "media.factory.access", True)
