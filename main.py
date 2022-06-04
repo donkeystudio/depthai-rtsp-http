@@ -18,7 +18,6 @@ class RtspSystem(GstRtspServer.RTSPMediaFactory):
         self.data = None
         self.launch_string = 'appsrc name=source is-live=true block=true format=GST_FORMAT_TIME ! h264parse ! ' \
                              'rtph264pay name=pay0 config-interval=1 name=pay0 pt=96 '
-        self.set_service(RTSP_PORT)
 
     def send_data(self, data):
         self.data = data
@@ -55,6 +54,7 @@ class RTSPServer(GstRtspServer.RTSPServer):
         basic = GstRtspServer.RTSPAuth.make_basic(user, password)
         auth.add_basic(basic, token)
         self.set_auth(auth)
+        self.set_service(RTSP_PORT)
 
         permissions = GstRtspServer.RTSPPermissions()
         permissions.add_permission_for_role(user, "media.factory.access", True)
