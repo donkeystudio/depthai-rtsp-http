@@ -11,7 +11,7 @@ jobs:
 
   build-and-push:
     name: Push Docker image to Docker Hub
-    runs-on: macos-12
+    runs-on: [self-hosted]
     permissions:
       contents: read
       packages: write
