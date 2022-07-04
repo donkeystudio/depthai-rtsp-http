@@ -1,3 +1,4 @@
+from tokenize import String
 import gi
 gi.require_version('Gst', '1.0')
 gi.require_version('GstRtspServer', '1.0')
@@ -74,17 +75,24 @@ class RTSPServer(GstRtspServer.RTSPServer):
 
 # Parse command line arguments
 parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-parser.add_argument("-u", "--user", default=None, help="Username")
-parser.add_argument("-pwd", "--password", default=None, help="Password")
-parser.add_argument("-hp", "--http_port", default=8080, type=int, help="Port for HTTP Server")
-parser.add_argument("-rp", "--rtsp_port", default=8554, type=int, help="Port for RTSP Server")
+parser.add_argument("-u",   "--user",      default=None,            help="Username")
+parser.add_argument("-pwd", "--password",  default=None,            help="Password")
+parser.add_argument("-hp",  "--http_port", default=8080, type=int,  help="Port for HTTP Server")
+parser.add_argument("-rp",  "--rtsp_port", default=8554, type=int,  help="Port for RTSP Server")
+parser.add_argument("-wt",  "--width",     default=1920, type=int,  help="Width of the video/preview size. In multiple of 32")
+parser.add_argument("-ht",  "--height",    default=1080, type=int,  help="Height of the video/preview size. In multiple of 8")
+parser.add_argument("-qa",  "--quality",   default=100,  type=int,  help="Video quality, from 1 to 100")
+parser.add_argument("-sm",  "--scale_mode",default=True, type=bool, help="Scale or crop the video output. Default is scale. Set to false to switch to crop mode")
 args = vars(parser.parse_args())
 
 HTTP_PORT = args["http_port"]
 RTSP_PORT = args["rtsp_port"]
-USER = args["user"]
-PWD = args["password"]
-
+USER      = args["user"]
+PWD       = args["password"]
+WIDTH     = args["width"]
+HEIGHT    = args["height"]
+QUALITY   = args["quality"]
+SCALE_ON  = args["scale_mode"]
 
 if __name__ == "__main__":
     import depthai as dai
@@ -99,10 +107,16 @@ if __name__ == "__main__":
     colorCam.setInterleaved(False)
     colorCam.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
     colorCam.setFps(FPS)
+    colorCam.setPreviewSize(WIDTH, HEIGHT)
+    colorCam.setVideoSize(WIDTH, HEIGHT)
+    if SCALE_ON is True:
+        colorCam.setIspScale(WIDTH, 1920)
 
     videnc = pipeline.create(dai.node.VideoEncoder)
-    videnc.setDefaultProfilePreset(1280, 720, FPS, dai.VideoEncoderProperties.Profile.H264_MAIN)
+    videnc.setDefaultProfilePreset(FPS, dai.VideoEncoderProperties.Profile.H264_MAIN)
     videnc.setKeyframeFrequency(FPS * 4)
+    videnc.setQuality(QUALITY)
+
     colorCam.video.link(videnc.input)
 
     veOut = pipeline.create(dai.node.XLinkOut)

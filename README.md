@@ -34,14 +34,18 @@ docker run --rm --privileged -v /dev/bus/usb:/dev/bus/usb donkeystudio/depthai-r
 python3 main.py --help
 ```
 ```
-usage: main.py [-h] [-u USER] [-pwd PASSWORD] [-hp HTTP_PORT] [-rp RTSP_PORT]
+usage: main.py [-h] [-u USER] [-pwd PASSWORD] [-hp HTTP_PORT] [-rp RTSP_PORT] [-wt WIDTH] [-ht HEIGHT] [-qa QUALITY] [-sm SCALE_MODE]
 
 optional arguments:
-  -h,            --help                 show this help message and exit
-  -u USER,       --user      USER       Username (default: None)
-  -pwd PASSWORD, --password  PASSWORD   Password (default: None)
-  -hp HTTP_PORT, --http_port HTTP_PORT  Port for HTTP Server (default: 8080)
-  -rp RTSP_PORT, --rtsp_port RTSP_PORT  Port for RTSP Server (default: 8554)
+  -h,             --help                  show this help message and exit
+  -u USER,        --user       USER       Username (default: None)
+  -pwd PASSWORD,  --password   PASSWORD   Password (default: None)
+  -hp HTTP_PORT,  --http_port  HTTP_PORT  Port for HTTP Server (default: 8080)
+  -rp RTSP_PORT,  --rtsp_port  RTSP_PORT  Port for RTSP Server (default: 8554)
+  -wt WIDTH,      --width      WIDTH      Width of the video/preview size. In multiple of 32 (default: 1920)
+  -ht HEIGHT,     --height     HEIGHT     Height of the video/preview size. In multiple of 8 (default: 1080)
+  -qa QUALITY,    --quality    QUALITY    Video quality, from 1 to 100 (default: 100)
+  -sm SCALE_MODE, --scale_mode SCALE_MODE Scale or crop the video output. Default is scale. Set to false to switch to crop mode (default: True)
 ```
 
 ## Example
