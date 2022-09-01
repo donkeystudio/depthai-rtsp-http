@@ -1,94 +1,34 @@
-from tokenize import String
-import gi
-gi.require_version('Gst', '1.0')
-gi.require_version('GstRtspServer', '1.0')
-from gi.repository import Gst, GstRtspServer, GLib
-
-import threading
 from socketserver import ThreadingMixIn, TCPServer
 from http.server import BaseHTTPRequestHandler
 from threading import Thread
 import base64
 import json
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-
-
-class RtspSystem(GstRtspServer.RTSPMediaFactory):
-    def __init__(self, **properties):
-        super(RtspSystem, self).__init__(**properties)
-        self.data = None
-        self.launch_string = 'appsrc name=source is-live=true block=true format=GST_FORMAT_TIME ! h264parse ! ' \
-                             'rtph264pay name=pay0 config-interval=1 name=pay0 pt=96 '
-
-    def send_data(self, data):
-        self.data = data
-
-    def start(self):
-        t = threading.Thread(target=self._thread_rtsp)
-        t.start()
-
-    def _thread_rtsp(self):
-        loop = GLib.MainLoop()
-        loop.run()
-
-    def on_need_data(self, src, length):
-        if self.data is not None:
-            retval = src.emit('push-buffer', Gst.Buffer.new_wrapped(self.data.tobytes()))
-            if retval != Gst.FlowReturn.OK:
-                print(retval)
-
-    def do_create_element(self, url):
-        return Gst.parse_launch(self.launch_string)
-
-    def do_configure(self, rtsp_media):
-        self.number_frames = 0
-        appsrc = rtsp_media.get_element().get_child_by_name('source')
-        appsrc.connect('need-data', self.on_need_data)
-
-
-class RTSPServer(GstRtspServer.RTSPServer):
-    def __init__(self, user, password, **properties):
-        super(RTSPServer, self).__init__(**properties)
-        auth = GstRtspServer.RTSPAuth()
-        token = GstRtspServer.RTSPToken()
-        token.set_string('media.factory.role', user)
-        basic = GstRtspServer.RTSPAuth.make_basic(user, password)
-        auth.add_basic(basic, token)
-        self.set_auth(auth)
-        self.set_service(str(RTSP_PORT))
-
-        permissions = GstRtspServer.RTSPPermissions()
-        permissions.add_permission_for_role(user, "media.factory.access", True)
-        permissions.add_permission_for_role(user, "media.factory.construct", True)
-
-        self.rtsp = RtspSystem()
-        self.rtsp.set_shared(True)
-        self.rtsp.add_role_from_structure(permissions.get_role(user))
-        self.get_mount_points().add_factory("/preview", self.rtsp)
-        self.attach(None)
-        Gst.init(None)
-        self.rtsp.start()
-
-    def send_data(self, data):
-        self.rtsp.send_data(data)
+import subprocess as sp
 
 
 # Parse command line arguments
 parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-parser.add_argument("-u",   "--user",      default=None,            help="Username")
-parser.add_argument("-pwd", "--password",  default=None,            help="Password")
-parser.add_argument("-hp",  "--http_port", default=8080, type=int,  help="Port for HTTP Server")
-parser.add_argument("-rp",  "--rtsp_port", default=8554, type=int,  help="Port for RTSP Server")
-parser.add_argument("-wt",  "--width",     default=1920, type=int,  help="Width of the video/preview size. In multiple of 32")
-parser.add_argument("-ht",  "--height",    default=1080, type=int,  help="Height of the video/preview size. In multiple of 8")
-parser.add_argument("-qa",  "--quality",   default=100,  type=int,  help="Video quality, from 1 to 100")
-parser.add_argument("-sm",  "--scale_mode",default=True, type=bool, help="Scale or crop the video output. Default is scale. Set to false to switch to crop mode")
+parser.add_argument("-u",   "--user",      default=None,                    help="Username to access HTTP Server")
+parser.add_argument("-pwd", "--password",  default=None,                    help="Password to access HTTP Server")
+parser.add_argument("-hp",  "--http_port", default=8080,        type=int,   help="Port for HTTP Server")
+parser.add_argument("-ru",  "--rtsp_user", default=None,                    help="Username to publish to RTSP Server")
+parser.add_argument("-rpwd","--rtsp_pwd",  default=None,                    help="Password to publish to RTSP Server")
+parser.add_argument("-rip", "--rtsp_host", default="localhost", type=str,   help="Host of the RTSP Server")
+parser.add_argument("-rp",  "--rtsp_port", default=8554,        type=int,   help="Port of the RTSP Server")
+parser.add_argument("-wt",  "--width",     default=1920,        type=int,   help="Width of the video/preview size. In multiple of 32")
+parser.add_argument("-ht",  "--height",    default=1080,        type=int,   help="Height of the video/preview size. In multiple of 8")
+parser.add_argument("-qa",  "--quality",   default=100,         type=int,   help="Video quality, from 1 to 100")
+parser.add_argument("-sm",  "--scale_mode",default=True,        type=bool,  help="Scale or crop the video output. Default is scale. Set to false to switch to crop mode")
 args = vars(parser.parse_args())
 
 HTTP_PORT = args["http_port"]
 RTSP_PORT = args["rtsp_port"]
 USER      = args["user"]
 PWD       = args["password"]
+RTSP_USER = args["rtsp_user"]
+RTSP_PWD  = args["rtsp_pwd"]
+RTSP_HOST = args["rtsp_host"]
 WIDTH     = args["width"]
 HEIGHT    = args["height"]
 QUALITY   = args["quality"]
@@ -96,8 +36,6 @@ SCALE_ON  = args["scale_mode"]
 
 if __name__ == "__main__":
     import depthai as dai
-
-    server = RTSPServer(USER, PWD)
 
     pipeline = dai.Pipeline()
 
@@ -221,10 +159,33 @@ if __name__ == "__main__":
 
     ############################
 
+    credential = ""
+    if RTSP_USER is not None and RTSP_PWD is not None:
+        credential = f"{RTSP_USER}:{RTSP_PWD}@"
+
+    command = [
+        "ffmpeg",
+        "-i", "-",
+        "-f", "rtsp",
+        "-rtsp_transport", "tcp",
+        f"rtsp://{credential}{RTSP_HOST}:{RTSP_PORT}/preview"
+    ]
+
+    try:
+        proc = sp.Popen(command, stdin=sp.PIPE)  # Start the ffmpeg process
+    except:
+        exit("Error: cannot run ffmpeg!\nTry running: sudo apt install ffmpeg")
+
     with dai.Device(pipeline, device_info) as device:
         Thread(target=serveOnPort, args=[HTTP_PORT, device, USER, PWD]).start()
         encoded = device.getOutputQueue("encoded", maxSize=40, blocking=True)
-        print("Setup finished, RTSP stream available under \"rtsp://localhost:{}/preview\"".format(RTSP_PORT))
-        while True:
-            data = encoded.get().getData()
-            server.send_data(data)
+        print(f"Setup finished, RTSP stream available under \"rtsp://{RTSP_HOST}:{RTSP_PORT}/preview\"")
+
+        try:
+            while True:
+                data = encoded.get().getData()  # Blocking call, will wait until new data has arrived
+                proc.stdin.write(data)
+        except:
+            pass
+
+        proc.stdin.close()
