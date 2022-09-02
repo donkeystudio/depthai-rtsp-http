@@ -165,9 +165,13 @@ if __name__ == "__main__":
 
     command = [
         "ffmpeg",
+        "-probesize", "100M",
         "-i", "-",
         "-f", "rtsp",
         "-rtsp_transport", "tcp",
+        "-framerate", "30",
+        "-vcodec", "copy",
+        "-v", "error",
         f"rtsp://{credential}{RTSP_HOST}:{RTSP_PORT}/preview"
     ]
 
